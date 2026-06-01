@@ -1,5 +1,6 @@
 import asyncio
 import os
+import ssl as ssl_module
 import sys
 from logging.config import fileConfig
 
@@ -18,7 +19,14 @@ from app.core.database import Base
 import app.models  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+
+db_url = settings.DATABASE_URL
+_connect_args = {}
+if "sslmode=require" in db_url:
+    db_url = db_url.replace("?sslmode=require", "").replace("&sslmode=require", "").replace("sslmode=require&", "")
+    _connect_args["ssl"] = ssl_module.create_default_context()
+
+config.set_main_option("sqlalchemy.url", db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -49,6 +57,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=_connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
