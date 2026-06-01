@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: adulto-mayor-backend
+    runtime: python
+    buildCommand: pip install uv && uv sync --no-dev
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: uv run alembic upgrade head && uv run python -m app.seeders.seed
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # lo pones manualmente en el dashboard de Render
+      - key: SECRET_KEY
+        sync: false          # lo pones manualmente en el dashboard de Render
+      - key: ADMIN_USERNAME
+        sync: false          # lo pones manualmente en el dashboard de Render
+      - key: ADMIN_PASSWORD
+        sync: false          # lo pones manualmente en el dashboard de Render
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_HOURS
+        value: 8
+      - key: APP_NAME
+        value: Plataforma Adulto Mayor API
+      - key: DEBUG
+        value: false
+      - key: SEED_DEMO_DATA
+        value: false         # cambiar a true solo si quieres datos de prueba

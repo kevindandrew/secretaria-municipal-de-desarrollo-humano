@@ -41,19 +41,26 @@ async def seed_roles(db: AsyncSession) -> dict[str, Rol]:
 
 
 async def seed_admin(db: AsyncSession, rol_admin: Rol):
-    existing = await db.scalar(select(Usuario).where(Usuario.username == "admin"))
+    username = os.getenv("ADMIN_USERNAME", "admin")
+    password = os.getenv("ADMIN_PASSWORD")
+
+    if not password:
+        logger.warning("ADMIN_PASSWORD no definida — omitiendo creación de admin")
+        return
+
+    existing = await db.scalar(select(Usuario).where(Usuario.username == username))
     if not existing:
         admin = Usuario(
             nombre="Admin",
             apellido="Sistema",
-            username="admin",
-            password_hash=hash_password("Admin1234!"),
+            username=username,
+            password_hash=hash_password(password),
             rol_id=rol_admin.id,
             activo=True,
         )
         db.add(admin)
         await db.flush()
-        logger.info("Usuario admin creado")
+        logger.info("Usuario admin creado: %s", username)
     else:
         logger.info("Admin ya existe, omitiendo")
 
@@ -186,17 +193,22 @@ async def seed_seguimientos(db: AsyncSession, casos: list[Caso], admin: Usuario)
 
 
 async def run_seed():
+    demo = os.getenv("SEED_DEMO_DATA", "false").lower() == "true"
+
     async with AsyncSessionLocal() as db:
         try:
             roles = await seed_roles(db)
             await seed_admin(db, roles["administrador"])
             await seed_tipologias(db)
 
-            admin = await db.scalar(select(Usuario).where(Usuario.username == "admin"))
-            tipologias = (await db.execute(select(Tipologia))).scalars().all()
-            adultos = await seed_adultos_mayores(db)
-            casos = await seed_casos(db, adultos, tipologias, admin)
-            await seed_seguimientos(db, casos, admin)
+            if demo:
+                admin_username = os.getenv("ADMIN_USERNAME", "admin")
+                admin = await db.scalar(select(Usuario).where(Usuario.username == admin_username))
+                tipologias = (await db.execute(select(Tipologia))).scalars().all()
+                adultos = await seed_adultos_mayores(db)
+                casos = await seed_casos(db, adultos, tipologias, admin)
+                await seed_seguimientos(db, casos, admin)
+                logger.info("Datos de demo cargados")
 
             await db.commit()
             logger.info("Seed completado exitosamente")
